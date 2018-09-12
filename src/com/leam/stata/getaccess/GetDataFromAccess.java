@@ -1,6 +1,7 @@
 package com.leam.stata.getaccess;
 
 import java.sql.*;
+import java.text.Normalizer;
 
 import com.stata.sfi.Data;
 import com.stata.sfi.SFIToolkit;
@@ -18,7 +19,7 @@ public class GetDataFromAccess {
 		
 		try {
 			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");						// loading Driver			
-			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://" + db);		// establish connection
+			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://" + db);	// establish connection
 			Statement s = conn.createStatement();
 			ResultSet rs = s.executeQuery("SELECT * FROM [" + table + "]");				// get all data from table
 			
@@ -26,7 +27,7 @@ public class GetDataFromAccess {
 			int columnCount = rsmd.getColumnCount();			// the column count starts from 1
 			// create variables
 			for (int i = 1; i <= columnCount; i++ ) {
-				String name = rsmd.getColumnName(i);
+				String name = cleanName(rsmd.getColumnName(i));
 				StataType type = toStataType(rsmd.getColumnTypeName(i));
 				
 				switch (type) {
@@ -36,7 +37,7 @@ public class GetDataFromAccess {
 						break;
 					case STRING:
 						rc = Data.addVarStr(name,2045);
-						break;
+						break; 
 					case DATE:
 						rc = Data.addVarStr("_Date_" + name,2045);
 						break;
@@ -87,6 +88,26 @@ public class GetDataFromAccess {
 		return (rc);
 	}
 	
+	private static String cleanName(String name) {
+		/* Stata valid variable names: 
+		   1 to 32 characters long 
+		   must start with a letter or _
+		   the remaining characters may be letters, _, or number digits*/
+		String s = "";
+		if (name.length()>32) name = name.substring(0, 32);
+		for (int i = 0; i < name.length(); i++){
+		    char c = name.charAt(i);
+		    if (Character.isLetterOrDigit(c) || c == '_') {
+		    	// if first character is numeric, replace with _
+		    	if (i==0 && Character.isDigit(c)) s = s + "_";
+		    	else s = s + c;
+		    }
+		}
+		s = Normalizer.normalize(s, Normalizer.Form.NFD);
+
+		return s.replaceAll("[^\\x00-\\x7F]", "");
+	}
+	
 	public static StataType toStataType(String type) {
 
 		switch (type) {
@@ -121,4 +142,7 @@ public class GetDataFromAccess {
         return (null);
     }
 
+	public static void main(String args[]) {
+		// DO NOTHING
+	}
 }
