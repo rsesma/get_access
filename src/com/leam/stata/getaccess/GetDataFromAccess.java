@@ -1,9 +1,14 @@
 package com.leam.stata.getaccess;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
 import java.text.Normalizer;
 
 import com.stata.sfi.Data;
+import com.stata.sfi.Macro;
 import com.stata.sfi.SFIToolkit;
 
 public class GetDataFromAccess {
@@ -12,6 +17,84 @@ public class GetDataFromAccess {
         NUMBER, STRING, DATE, BOOLEAN
     }
 
+	public static int getTblData(String args[]) {
+		String db = args[0];
+		String tbl = args[1];
+		int rc = 0;
+		
+		try {
+			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");							// load driver
+			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db));	// establish connection
+			try {
+				Statement s = conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+				ResultSet rs = s.executeQuery("SELECT * FROM [" + tbl + "]");				// get all data from table
+				ResultSetMetaData rsMD = rs.getMetaData();
+				String vars = "";
+				int nvars = rsMD.getColumnCount();					// the column count starts from 1
+				for (int i = 1; i <= nvars; i++ ) {
+					String name = "[".concat(rsMD.getColumnName(i)).concat("]");
+					vars = vars.concat(((i==1) ? "":"; ")).concat(name);
+				}
+				// get number of observations
+				rs.last();
+				long obs = rs.getRow();
+				
+				// store results on Stata macros
+				rc = Macro.setLocal("nvars", Integer.toString(nvars));
+				rc = Macro.setLocal("vars", vars);
+				rc = Macro.setLocal("obs", Long.toString(obs));
+				
+				rs.close();
+				rs = null;
+				rsMD = null;
+				conn.close();
+				conn = null;
+			} catch (Exception e) {
+				SFIToolkit.errorln("error getting data (" + e.getMessage() + ")");
+				return (198);				
+			}
+		} catch (Exception e) {
+			SFIToolkit.errorln("error connecting to database (" + e.getMessage() + ")");
+			return (198);
+		}
+		return (rc);
+	}
+    
+	public static int getTables(String args[]) {
+		String db = args[0];
+		int rc = 0;
+		
+		try {
+			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");							// load driver
+			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db));	// establish connection
+			try {
+				ResultSet rs = conn.getMetaData().getTables(null, null, null, null);		// get all tables in database
+				int ntables = 0;			// build results
+				String tables = "";
+				while (rs.next()) { 
+					String tbl = rs.getString("TABLE_NAME");
+					tables = tables.concat(((ntables==0) ? "":"; ")).concat(tbl);
+					ntables = ntables + 1;
+				}
+				// store results on Stata macros
+				rc = Macro.setLocal("ntables", Integer.toString(ntables));
+				rc = Macro.setLocal("tables", tables);
+				
+				rs.close();
+				rs = null;
+				conn.close();
+				conn = null;
+			} catch (Exception e) {
+				SFIToolkit.errorln("error getting data (" + e.getMessage() + ")");
+				return (198);				
+			}
+		} catch (Exception e) {
+			SFIToolkit.errorln("error connecting to database (" + e.getMessage() + ")");
+			return (198);
+		}
+		return (rc);
+	}
+    
 	public static int getData(String args[]) {
 		String db = args[0];
 		String table = args[1];
