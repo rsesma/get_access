@@ -24,15 +24,15 @@ public class GetDataFromAccess {
 		
 		try {
 			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");							// load driver
-			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db));	// establish connection
+			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db.trim()));	// establish connection
 			try {
 				Statement s = conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
 				ResultSet rs = s.executeQuery("SELECT * FROM [" + tbl + "]");				// get all data from table
 				ResultSetMetaData rsMD = rs.getMetaData();
 				String vars = "";
-				int nvars = rsMD.getColumnCount();					// the column count starts from 1
+				int nvars = rsMD.getColumnCount();									// get number of variables
 				for (int i = 1; i <= nvars; i++ ) {
-					String name = "[".concat(rsMD.getColumnName(i)).concat("]");
+					String name = "[".concat(rsMD.getColumnName(i)).concat("]");	// build variable names [name1]; [name2]...
 					vars = vars.concat(((i==1) ? "":"; ")).concat(name);
 				}
 				// get number of observations
@@ -44,13 +44,16 @@ public class GetDataFromAccess {
 				rc = Macro.setLocal("vars", vars);
 				rc = Macro.setLocal("obs", Long.toString(obs));
 				
+				// close and clean
 				rs.close();
 				rs = null;
 				rsMD = null;
 				conn.close();
 				conn = null;
+				
+				if (rc!=0) SFIToolkit.errorln("error saving information to Stata");
 			} catch (Exception e) {
-				SFIToolkit.errorln("error getting data (" + e.getMessage() + ")");
+				SFIToolkit.errorln("error opening table " + tbl + "(" + e.getMessage() + ")");
 				return (198);				
 			}
 		} catch (Exception e) {
@@ -66,7 +69,7 @@ public class GetDataFromAccess {
 		
 		try {
 			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");							// load driver
-			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db));	// establish connection
+			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db.trim()));	// establish connection
 			try {
 				ResultSet rs = conn.getMetaData().getTables(null, null, null, null);		// get all tables in database
 				int ntables = 0;			// build results
@@ -84,8 +87,10 @@ public class GetDataFromAccess {
 				rs = null;
 				conn.close();
 				conn = null;
+				
+				if (rc!=0) SFIToolkit.errorln("error saving information to Stata");
 			} catch (Exception e) {
-				SFIToolkit.errorln("error getting data (" + e.getMessage() + ")");
+				SFIToolkit.errorln("error getting data (".concat(e.getMessage()).concat(")"));
 				return (198);				
 			}
 		} catch (Exception e) {
@@ -101,8 +106,8 @@ public class GetDataFromAccess {
 		int rc = 0;
 		
 		try {
-			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");						// loading Driver			
-			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://" + db);	// establish connection
+			Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");							// load driver
+			Connection conn = DriverManager.getConnection("jdbc:ucanaccess://".concat(db.trim()));	// establish connection
 			Statement s = conn.createStatement();
 			ResultSet rs = s.executeQuery("SELECT * FROM [" + table + "]");				// get all data from table
 			
@@ -122,7 +127,7 @@ public class GetDataFromAccess {
 						rc = Data.addVarStr(name,2045);
 						break; 
 					case DATE:
-						rc = Data.addVarStr("_Date_" + name,2045);
+						rc = Data.addVarStr("_Date__" + name,2045);
 						break;
 				}
 				if (rc!=0) {
@@ -182,7 +187,7 @@ public class GetDataFromAccess {
 		    char c = name.charAt(i);
 		    if (Character.isLetterOrDigit(c) || c == '_') {
 		    	// if first character is numeric, replace with _
-		    	if (i==0 && Character.isDigit(c)) s = s + "_";
+		    	if (i==0 && Character.isDigit(c)) s = "_";
 		    	else s = s + c;
 		    }
 		}
